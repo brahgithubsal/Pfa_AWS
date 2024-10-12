@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring-boot-deployment
+  namespace: web
+  labels:
+    app: spring-boot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spring-boot
+  template:
+    metadata:
+      labels:
+        app: spring-boot
+    spec:
+      containers:
+        - name: spring-boot
+          image: azizbk9/spring-image:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: spring-boot-config
+                  key: datasource_url
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: spring-boot-secret
+                  key: username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: spring-boot-secret
+                  key: password
+            - name: SPRING_DATA_SOURCE_DRIVER_CLASS_NAME
+              value: "com.mysql.cj.jdbc.Driver"
+            - name: CORS_ORIGIN_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: spring-boot-config
+                  key: cors_origin_url
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "1"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spring-boot-service
+  namespace: web
+  labels:
+    app: spring-boot
+spec:
+  selector:
+    app: spring-boot
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      nodePort: 30762
+  type: NodePort
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spring-boot-config
+  namespace: web
+data:
+  datasource_url: "jdbc:mysql://mysql:3306/employeemanager?allowPublicKeyRetrieval=true&serverTimezone=UTC"
+  cors_origin_url: "http://192.168.49.2:30177"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: spring-boot-secret
+  namespace: web
+type: Opaque
+data:
+  username: cm9vdA==  # base64 encoded "root"
+  password: QXppejIwMjJAIQ==  # base64 encoded "Aziz2022@"
